@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using Cysharp.Threading.Tasks;
 
 namespace Hermes
@@ -30,6 +31,12 @@ namespace Hermes
             {
                 collection.Remove(subscription);
             }
+        }
+
+        internal void Unsubscribe(HandlerSubscription subscription)
+        {
+            var handler = this.requestHandlers.FirstOrDefault(h => h.Value.Id == subscription.Id);
+            this.requestHandlers.Remove(handler.Key, out var _);
         }
 
         internal TResponse Send<TRequest, TResponse>(TRequest request) where TRequest : IRequest<TResponse>
@@ -74,56 +81,68 @@ namespace Hermes
             throw new Exception($"Ho handler specified for {typeof(TRequest).Name}");
         }
 
-        internal void Handle<TRequest, TResponse>(Func<TRequest, TResponse> handler) where TRequest : IRequest<TResponse>
+        internal HandlerSubscription Handle<TRequest, TResponse>(Func<TRequest, TResponse> handler) where TRequest : IRequest<TResponse>
         {
-            var result = this.requestHandlers.TryAdd(typeof(TRequest), new RequestHandler<TRequest, TResponse>
+            var requestHandler = new RequestHandler<TRequest, TResponse>
             {
                 Handler = handler
-            });
+            };
+            var result = this.requestHandlers.TryAdd(typeof(TRequest), requestHandler);
 
             if (!result)
             {
                 throw new Exception($"Handler already exists for {typeof(TRequest).Name}");
             }
+
+            return new HandlerSubscription(requestHandler.Id);
         }
 
-        internal void Handle<TRequest>(Action<TRequest> handler) where TRequest : IRequest
+        internal HandlerSubscription Handle<TRequest>(Action<TRequest> handler) where TRequest : IRequest
         {
-            var result = this.requestHandlers.TryAdd(typeof(TRequest), new RequestHandler<TRequest>
+            var requestHandler = new RequestHandler<TRequest>
             {
                 Handler = handler
-            });
+            };
+            var result = this.requestHandlers.TryAdd(typeof(TRequest), requestHandler);
 
             if (!result)
             {
                 throw new Exception($"Handler already exists for {typeof(TRequest).Name}");
             }
+
+            return new HandlerSubscription(requestHandler.Id);
         }
 
-        internal void HandleAsync<TRequest, TResponse>(Func<TRequest, UniTask<TResponse>> handler) where TRequest : IAsyncRequest<TResponse>
+        internal HandlerSubscription HandleAsync<TRequest, TResponse>(Func<TRequest, UniTask<TResponse>> handler) where TRequest : IAsyncRequest<TResponse>
         {
-            var result = this.requestHandlers.TryAdd(typeof(TRequest), new AsyncRequestHandler<TRequest, TResponse>
+            var requestHandler = new AsyncRequestHandler<TRequest, TResponse>
             {
                 Handler = handler
-            });
+            };
+            var result = this.requestHandlers.TryAdd(typeof(TRequest), requestHandler);
 
             if (!result)
             {
                 throw new Exception($"Handler already exists for {typeof(TRequest).Name}");
             }
+
+            return new HandlerSubscription(requestHandler.Id);
         }
 
-        internal void HandleAsync<TRequest>(Func<TRequest, UniTask> handler) where TRequest : IAsyncRequest
+        internal HandlerSubscription HandleAsync<TRequest>(Func<TRequest, UniTask> handler) where TRequest : IAsyncRequest
         {
-            var result = this.requestHandlers.TryAdd(typeof(TRequest), new AsyncRequestHandler<TRequest>
+            var requestHandler = new AsyncRequestHandler<TRequest>
             {
                 Handler = handler
-            });
+            };
+            var result = this.requestHandlers.TryAdd(typeof(TRequest), requestHandler);
 
             if (!result)
             {
                 throw new Exception($"Handler already exists for {typeof(TRequest).Name}");
             }
+
+            return new HandlerSubscription(requestHandler.Id);
         }
     }
 

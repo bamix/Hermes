@@ -7,9 +7,12 @@ namespace Hermes
     // TODO remove handlers on dispose
     public class Mediator : IMediator
     {
-        private readonly List<EventSubscription> subscriptions = new();
+        private List<EventSubscription> subscriptions;
+        private List<HandlerSubscription> handlerSubscriptions;
         private readonly MediatorGlobal global;
 
+        private List<EventSubscription> Subscriptions => this.subscriptions ??= new List<EventSubscription>();
+        private List<HandlerSubscription> HandlerSubscriptions => this.handlerSubscriptions ??= new List<HandlerSubscription>();
         public Mediator(MediatorGlobal global)
         {
             this.global = global;
@@ -19,13 +22,13 @@ namespace Hermes
         {
             var subscription = new EventSubscription<TEvent>(handler, this);
             this.global.Subscribe(subscription);
-            this.subscriptions.Add(subscription);
+            Subscriptions.Add(subscription);
             return subscription;
         }
 
         internal void Off(EventSubscription subscription)
         {
-            var isRemoved = this.subscriptions.Remove(subscription);
+            var isRemoved = Subscriptions.Remove(subscription);
             if (isRemoved)
             {
                 this.global.Unsubscribe(subscription);
@@ -69,31 +72,43 @@ namespace Hermes
 
         public void Handle<TRequest, TResponse>(Func<TRequest, TResponse> handler) where TRequest : IRequest<TResponse>
         {
-            this.global.Handle(handler);
+            HandlerSubscriptions.Add(this.global.Handle(handler));
         }
 
         public void HandleAsync<TRequest, TResponse>(Func<TRequest, UniTask<TResponse>> handler) where TRequest : IAsyncRequest<TResponse>
         {
-            this.global.HandleAsync(handler);
+            HandlerSubscriptions.Add(this.global.HandleAsync(handler));
         }
 
         public void Handle<TRequest>(Action<TRequest> handler) where TRequest : IRequest
         {
-            this.global.Handle(handler);
+            HandlerSubscriptions.Add(this.global.Handle(handler));
         }
 
         public void HandleAsync<TRequest>(Func<TRequest, UniTask> handler) where TRequest : IAsyncRequest
         {
-            this.global.HandleAsync(handler);
+            HandlerSubscriptions.Add(this.global.HandleAsync(handler));
         }
 
         public void Dispose()
         {
-            foreach (var subscription in this.subscriptions)
+            if (this.subscriptions != null)
             {
-                this.global.Unsubscribe(subscription);
+                foreach (var subscription in Subscriptions)
+                {
+                    this.global.Unsubscribe(subscription);
+                }
+                Subscriptions.Clear();
             }
-            this.subscriptions.Clear();
+
+            if (this.handlerSubscriptions != null)
+            {
+                foreach (var subscription in HandlerSubscriptions)
+                {
+                    this.global.Unsubscribe(subscription);
+                }
+                HandlerSubscriptions.Clear();
+            }
         }
     }
 }

@@ -23,5 +23,8 @@ namespace Hermes
         public Func<TRequest, UniTask> Handler { get; set; }
     }
 
-    internal abstract class RequestHandler{}
+    internal abstract class RequestHandler
+    {
+        internal Guid Id { get; } = Guid.NewGuid();
+    }
 }
